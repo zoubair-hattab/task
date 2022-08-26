@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script
+      src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"
+      type="application/javascript"
+    ></script>
+    <title>FTSO </title>
+  </head>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody id="pricesTableBody"></tbody>
+    </table>
+  </body>
+</html>
+
+<script>
+  const tableBodyElement = document.getElementById("pricesTableBody");
+  var provider = new ethers.providers.JsonRpcProvider(
+    "https://sgb.ftso.com.au/ext/bc/C/rpc"
+  );
+  const ftsoRegistry = {
+    address: "0x6D222fb4544ba230d4b90BA1BfC0A01A94E6cB23",
+    abi: [
+      {
+        type: "function",
+        stateMutability: "view",
+        outputs: [
+          {
+            type: "address[]",
+            name: "_ftsos",
+            internalType: "contract IIFtso[]",
+          },
+        ],
+        name: "getSupportedFtsos",
+        inputs: [],
+      },
+      {
+        type: "function",
+        stateMutability: "view",
+        outputs: [
+          {
+            type: "string[]",
+            name: "_supportedSymbols",
+            internalType: "string[]",
+          },
+        ],
+        name: "getSupportedSymbols",
+        inputs: [],
+      },
+      {
+        type: "function",
+        stateMutability: "view",
+        outputs: [
+          { type: "uint256", name: "_price", internalType: "uint256" },
+          { type: "uint256", name: "_timestamp", internalType: "uint256" },
+        ],
+        name: "getCurrentPrice",
+        inputs: [{ type: "string", name: "_symbol", internalType: "string" }],
+      },
+      {
+        type: "function",
+        stateMutability: "view",
+        outputs: [
+          { type: "uint256", name: "_price", internalType: "uint256" },
+          { type: "uint256", name: "_timestamp", internalType: "uint256" },
+        ],
+        name: "getCurrentPrice",
+        inputs: [
+          { type: "uint256", name: "_assetIndex", internalType: "uint256" },
+        ],
+      },
+    ],
+  };
+
+  const ftsoRegistryContract = new ethers.Contract(
+    ftsoRegistry.address,
+    ftsoRegistry.abi,
+    provider
+  );
+
+  var supportedSymbols = [];
+
+  window.onload = async () => {
+    supportedSymbols = await ftsoRegistryContract.getSupportedSymbols();
+
+    await getSymbolPrices();
+
+    await finalizationListener();
+  };
+
+  async function getSymbolPrices() {
+    tableBodyElement.innerHTML = "";
+    for (let symbol of supportedSymbols) {
+      let response = await ftsoRegistryContract["getCurrentPrice(string)"](
+        symbol
+      );
+      let price = Number(response._price) / 10 ** 5; 
+      let timestamp = Number(response._timestamp);
+      const row = document.createElement("tr");
+      const cell1 = document.createElement("td"); 
+      const cell2 = document.createElement("td"); 
+      cell1.innerHTML =
+        symbol;
+      cell2.innerHTML = "$" + price;
+      row.append(cell1, cell2);
+      tableBodyElement.appendChild(row);
+
+    }
+  }
+  async function finalizationListener() {
+    let supportedFtsos = await ftsoRegistryContract.getSupportedFtsos();
+
+    let ftso = {
+      address: supportedFtsos[0],
+      abi: [
+        {
+          type: "event",
+          name: "PriceFinalized",
+          inputs: [
+            {
+              type: "uint256",
+              name: "epochId",
+              internalType: "uint256",
+              indexed: true,
+            },
+            {
+              type: "uint256",
+              name: "price",
+              internalType: "uint256",
+              indexed: false,
+            },
+            {
+              type: "bool",
+              name: "rewardedFtso",
+              internalType: "bool",
+              indexed: false,
+            },
+            {
+              type: "uint256",
+              name: "lowRewardPrice",
+              internalType: "uint256",
+              indexed: false,
+            },
+            {
+              type: "uint256",
+              name: "highRewardPrice",
+              internalType: "uint256",
+              indexed: false,
+            },
+            {
+              type: "uint8",
+              name: "finalizationType",
+              internalType: "enum IFtso.PriceFinalizationType",
+              indexed: false,
+            },
+            {
+              type: "uint256",
+              name: "timestamp",
+              internalType: "uint256",
+              indexed: false,
+            },
+          ],
+          anonymous: false,
+        },
+      ],
+    };
+    const ftsoContract = new ethers.Contract(ftso.address, ftso.abi, provider);
+    ftsoContract.on("PriceFinalized", async () => {
+      getSymbolPrices();
+    });
+  }
+</script>

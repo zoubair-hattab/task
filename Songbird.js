@@ -1,31 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <script
-      src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"
-      type="application/javascript"
-    ></script>
-    <title>FTSO </title>
-  </head>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Price</th>
-        </tr>
-      </thead>
-      <tbody id="pricesTableBody"></tbody>
-    </table>
-  </body>
-</html>
-
-<script>
-  const tableBodyElement = document.getElementById("pricesTableBody");
+var ethers = require('ethers');
   var provider = new ethers.providers.JsonRpcProvider(
     "https://sgb.ftso.com.au/ext/bc/C/rpc"
   );
@@ -88,36 +61,28 @@
     ftsoRegistry.abi,
     provider
   );
+  let prices=[]
 
-  var supportedSymbols = [];
+  let supportedSymbols = [];
 
-  window.onload = async () => {
+ main = async () => {
     supportedSymbols = await ftsoRegistryContract.getSupportedSymbols();
-
     await getSymbolPrices();
-
     await finalizationListener();
   };
-
+  main()
   async function getSymbolPrices() {
-    tableBodyElement.innerHTML = "";
-    for (let symbol of supportedSymbols) {
+    prices=[]
+    
+    for (var symbol of supportedSymbols) {
       let response = await ftsoRegistryContract["getCurrentPrice(string)"](
         symbol
       );
       let price = Number(response._price) / 10 ** 5; 
-      let timestamp = Number(response._timestamp);
-      const row = document.createElement("tr");
-      const cell1 = document.createElement("td"); 
-      const cell2 = document.createElement("td"); 
-      cell1.innerHTML =
-        symbol;
-      cell2.innerHTML = "$" + price;
-      row.append(cell1, cell2);
-      tableBodyElement.appendChild(row);
-
+prices.push({symbol,price});
     }
-  }
+console.log (prices) 
+ }
   async function finalizationListener() {
     let supportedFtsos = await ftsoRegistryContract.getSupportedFtsos();
 
@@ -180,4 +145,3 @@
       getSymbolPrices();
     });
   }
-</script>
